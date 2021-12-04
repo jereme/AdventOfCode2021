@@ -8,7 +8,7 @@ do {
     case .success(let position):
       print(
         "- Summary ---------------",
-        "Final Position: \(position.horizontal), \(position.vertical)",
+        "Final Position: \(position)",
         "Result: \(position.horizontal * position.vertical)",
         "-------------------------",
         separator: "\n"
@@ -36,19 +36,23 @@ final class Runner {
   struct Position {
     var horizontal: Int
     var vertical: Int
+    var aim: Int
 
-    static var zero: Position { Position(horizontal: 0, vertical: 0) }
+    static var zero: Position { Position(horizontal: 0, vertical: 0, aim: 0) }
 
     fileprivate mutating func move(using instruction: Instruction) {
       switch instruction.direction {
       case .forward:
         horizontal += instruction.moves
+        vertical += instruction.moves * aim
 
       case .up:
         vertical -= instruction.moves
+        aim -= instruction.moves
 
       case .down:
         vertical += instruction.moves
+        aim += instruction.moves
       }
     }
   }
