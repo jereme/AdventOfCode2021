@@ -9,12 +9,12 @@ do {
       print(
         "- Summary ---------------",
         "Final Position: \(position)",
-        "Result: \(position.horizontal * position.vertical)",
+        "Result: \(position.horizontal * position.depth)",
         "-------------------------",
         separator: "\n"
       )
     case .failure(let error):
-      throw error
+      print("Unexpected error: \(error)")
     }
   }
 } catch Runner.RunnerError.invalidUsage {
@@ -22,7 +22,6 @@ do {
 
 } catch Runner.RunnerError.fileNotFound(let filename) {
   print("File not found: \(filename)")
-
 } catch {
   print("Unexpected error: \(error)")
 }
@@ -35,23 +34,21 @@ final class Runner {
 
   struct Position {
     var horizontal: Int
-    var vertical: Int
+    var depth: Int
     var aim: Int
 
-    static var zero: Position { Position(horizontal: 0, vertical: 0, aim: 0) }
+    static var zero: Position { Position(horizontal: 0, depth: 0, aim: 0) }
 
     fileprivate mutating func move(using instruction: Instruction) {
       switch instruction.direction {
       case .forward:
         horizontal += instruction.moves
-        vertical += instruction.moves * aim
+        depth += instruction.moves * aim
 
       case .up:
-        vertical -= instruction.moves
         aim -= instruction.moves
 
       case .down:
-        vertical += instruction.moves
         aim += instruction.moves
       }
     }
@@ -85,6 +82,7 @@ final class Runner {
     case invalidUsage
     case fileNotFound(filename: String)
     case invalidInstruction(instruction: String)
+    case unableToOpenFile(filename: String)
   }
 
   // MARK: Properties
@@ -110,22 +108,34 @@ final class Runner {
 
   // MARK: Processing
 
-  func processInput(completion: @escaping (Result<Position, Error>) throws -> Void) {
-    Task {
+  func processInput(completion: @escaping (Result<Position, Error>) -> Void) {
+    do {
       var position = Position.zero
 
-      do {
-        let instructions = fileURL.lines
-          .map { try Instruction(from: $0) }
+      let filename = fileURL.path
 
-        for try await instruction in instructions {
-          position.move(using: instruction)
-        }
-
-        try completion(.success(position))
-      } catch {
-        try completion(.failure(error))
+      guard let filePointer: UnsafeMutablePointer<FILE> = fopen(filename, "r") else {
+        completion(.failure(Runner.RunnerError.unableToOpenFile(filename: filename)))
+        return
       }
+
+      var lineByteArrayPointer: UnsafeMutablePointer<CChar>? = nil
+      var lineCap: Int = 0
+      var bytesRead = getline(&lineByteArrayPointer, &lineCap, filePointer)
+
+      while (bytesRead > 0) {
+        let rawLine = String.init(cString: lineByteArrayPointer!)
+        let line = rawLine.trimmingCharacters(in: CharacterSet.newlines)
+
+        let instruction = try Instruction(from: line)
+        position.move(using: instruction)
+
+        bytesRead = getline(&lineByteArrayPointer, &lineCap, filePointer)
+      }
+
+      completion(.success(position))
+    } catch {
+      completion(.failure(error))
     }
   }
 }
