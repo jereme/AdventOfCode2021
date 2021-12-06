@@ -12,5 +12,5 @@ I remembered that you can use Swift for shell scripts. It bugged me that most Sw
 
 Initially I solved the first problem using a mutable pointer to stream the contents in small chunks. Then my coworker enlightened me to the fact that async/await brought some new sugar for streaming the contents of a file. The The only problem is that it segfaults on files of more than 150 lines or so. Barring that catastrophic issue, you've gotta check out [this syntax](https://github.com/jereme/AdventOfCode2021/blob/eca965850453f73446bdcf86a85d2653f36b9f21/Day2/problem2.swift#L118-L123).
 
-### Day 3
-TBD
+### [Day 3](Day3/)
+I wasn't as happy with the resulting code on this one because a lot of it is operationally inefficient.  Reiterating over the same arrays over and over and whatnot.  That being said, I tried to bring reducers into the picture to help solve problems and I was able to get through the solution.
