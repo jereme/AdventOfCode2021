@@ -3,16 +3,16 @@
 import Foundation
 
 do {
-  let day3Problem1 = try Day3Problem1(arguments: CommandLine.arguments)
+  let runner = try Runner(arguments: CommandLine.arguments)
 
-  day3Problem1.processInput { result in
+  runner.processInput { result in
     switch result {
     case .success(let systemReport):
       print(
         "- Summary ---------------",
-        "Gamma: \(systemReport.gamma ?? 0)",
-        "Epsilon: \(systemReport.epsilon ?? 0)",
-        "Result: \(systemReport.powerConsumption ?? 0)",
+        "CO2 Scrubber Rating: \(systemReport.co2ScrubberRating ?? 0)",
+        "Oxygen Generator Rating: \(systemReport.oxygenGeneratorRating ?? 0)",
+        "Life Support Rating: \(systemReport.lifeSupportRating ?? 0)",
         "-------------------------",
         separator: "\n"
       )
@@ -20,10 +20,10 @@ do {
       print("Unexpected error: \(error)")
     }
   }
-} catch Day3Problem1.Errors.invalidUsage {
+} catch Runner.Errors.invalidUsage {
   print("Usage: \(CommandLine.arguments[0]) <filename>")
 
-} catch Day3Problem1.Errors.fileNotFound(let filename) {
+} catch Runner.Errors.fileNotFound(let filename) {
   print("File not found: \(filename)")
 
 } catch {
@@ -34,6 +34,7 @@ do {
 
 struct SystemReport {
   var gamma: Int? {
+    let scoreboard = self.scoreboard
     var result: String = ""
 
     for index in 0..<scoreboard.count {
@@ -51,6 +52,7 @@ struct SystemReport {
   }
 
   var epsilon: Int? {
+    let scoreboard = self.scoreboard
     var result: String = ""
 
     for index in 0..<scoreboard.count {
@@ -73,16 +75,69 @@ struct SystemReport {
     return gamma * epsilon
   }
 
-  private var scoreboard: [Int: [String: Int]] = [:]
+  var lifeSupportRating: Int? {
+    guard let co2ScrubberRating = co2ScrubberRating, let oxygenGeneratorRating = oxygenGeneratorRating else { return nil }
+    return co2ScrubberRating * oxygenGeneratorRating
+  }
+
+  var co2ScrubberRating: Int? {
+    let count = entries.map({ $0.count }).max() ?? 0
+
+    let resultList: [String] = (0..<count).reduce(entries) { partialResult, index in
+      guard partialResult.count > 1 else { return partialResult }
+      let buckets: [String: [String]] = partialResult.reduce(into: [:]) { partialBuckets, string in
+        let stringIndex = string.index(string.startIndex, offsetBy: index)
+        partialBuckets[String(string[stringIndex]), default: []].append(string)
+      }
+
+      let zeroBucket = buckets["0"] ?? []
+      let oneBucket = buckets["1"] ?? []
+
+      if zeroBucket.count == oneBucket.count {
+        return zeroBucket
+      } else {
+        return [zeroBucket, oneBucket].max(by: { $0.count > $1.count }) ?? []
+      }
+    }
+
+    guard let result = resultList.first else { return nil }
+
+    return Int(result, radix: 2)
+  }
+
+  var oxygenGeneratorRating: Int? {
+    let count = entries.map({ $0.count }).max() ?? 0
+
+    let resultList: [String] = (0..<count).reduce(entries) { partialResult, index in
+      let buckets: [String: [String]] = partialResult.reduce(into: [:]) { partialBuckets, string in
+        let stringIndex = string.index(string.startIndex, offsetBy: index)
+        partialBuckets[String(string[stringIndex]), default: []].append(string)
+      }
+
+      return buckets.max(by: { $0.value.count <= $1.value.count })?.value ?? []
+    }
+
+    guard let result = resultList.first else { return nil }
+
+    return Int(result, radix: 2)
+  }
+
+  private var scoreboard: [Int: [String: Int]] {
+    entries.reduce(into: [:]) { result, string in
+      for (position, character) in string.enumerated() {
+        result[position, default: [:]][String(character), default: 0] += 1
+      }
+    }
+  }
+
+  private var entries: [String] = []
 
   mutating func add(_ string: String) {
-    for (position, character) in string.enumerated() {
-      scoreboard[position, default: [:]][String(character), default: 0] += 1
-    }
+    entries.append(string)
   }
 }
 
-final class Day3Problem1 {
+final class Runner {
   enum Errors: Error {
     case invalidUsage
     case fileNotFound(filename: String)
@@ -118,7 +173,7 @@ final class Day3Problem1 {
     let filename = fileURL.path
 
     guard let filePointer: UnsafeMutablePointer<FILE> = fopen(filename, "r") else {
-      completion(.failure(Day3Problem1.Errors.unableToOpenFile(filename: filename)))
+      completion(.failure(Runner.Errors.unableToOpenFile(filename: filename)))
       return
     }
 
